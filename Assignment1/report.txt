@@ -1,0 +1,111 @@
+Name: Siddhant Khandelwal
+Student ID: 2017A7PS0127P
+BITS Email: f20170127@pilani.bits-pilani.ac.in
+Wikipedia file used: AB/wiki_10
+
+Answer 1:
+a) 73297
+b) The distribution plot is available in Figure_1.png
+c) 19505 
+
+Answer 2:
+a) 647784
+b) The distribution plot is available in Figure_2.png
+c) 488148
+
+
+Answer 3:
+a) 773620
+b) The distribution plot is available in Figure_3.png
+c) 534166
+
+Answer 4:
+a) Unigram analysis after stemming
+  i) 57127
+  ii) The distribution plot is available in Figure_4.png
+  iii) 10868
+
+b) Bigram analysis after stemming
+  i) 610980
+  ii) The distribution plot is available in Figure_5.png
+  iii) 451344
+
+c) Trigram analysis after stemming
+  i) 770590
+  ii) The distribution plot is available in Figure_6.png
+  iii) 531136
+
+Answer 5:
+a) Unigram analysis after lemmatization
+  i) 67455
+  ii) The distribution plot is available in Figure_7.png
+  iii) 15981
+
+b) Bigram analysis after lemmatization
+  i) 632854
+  ii) The distribution plot is available in Figure_8.png
+  iii) 473218
+
+c) Trigram analysis after lemmatization
+  i) 772064
+  ii) The distribution plot is available in Figure_9.png
+  iii) 532610
+
+Answer 6:
+Your brief summarization of the above result and how they are related to the zipf's law.
+The collection frequency cfi of the ith most common term is proportional to 1/i:
+cfi = cik
+log(cfi) = log(c) + k.log(i), where k = -1
+
+The graphs in the above figures, approximately follow Zipf’s law.
+The slope of the log-log graph equals around "-0.81" for the unigram case which can be approximated to follow the Zipf’s law.
+
+
+Answer 7:
+Examples where you observe that tokenization is not correct and why it is not correct?
+Note: It is possible to include any unicode character in .txt files: cliché, ω, 😀.
+
+“2015-2016” - should have been two different tokens "2015" and "2016".
+“'bike'-car” - should have been tokenized as "bike" and "car".
+“...and” - should have been tokenized as "and"
+
+Answer 8:
+I used the library nltk for tokenization, stemming and lemmatization. 
+
+tokenization: Tokenize a string to split off punctuation other than periods. I used the word_tokenize(s) function from the nltk tokenizers which in turn uses the TreebankWordTokenizer class
+
+stemming: Stemmers remove morphological affixes from words, leaving only the word stem. I used the Porter stemming algorithm from nltk stemming library
+It follows the algorithm presented by Martin Porter with some optional deviations that can be turned on or off with the mode argument to the constructor.
+
+lemmatization: Lemmatization is the algorithmic process of finding the lemma of a word depending on their meaning. I used the WordNetLemmatizer from the nltk stemming package. Wordnet is a large, freely and publicly available lexical database for the English language aiming to establish structured semantic relationships between words.
+
+Answer 9:
+Tokenization of dates is done as follows: “August 15, 2000” is tokenized as "August", 15 and 2000. 
+Dates are represented only in the above form in the document. 
+Years are tokenized as a single number.
+
+
+Answer 10:
+The top 20 bi-grams obtained using the Chi-square test.
+In the file code/main.py the function collocations_calculator() handles this computation.
+
+('mid-to', 'late-1990s'),
+('didactic', 'defiantly'), 
+('godmanchester', 'huntingdonshire'), 
+('go-one', 'evo'), 
+('waw', 'fietser'), 
+('battery-operated', 'electric-propulsion'), 
+('ezee', 'heinzmann'), 
+('heinzmann', 'bafang'), 
+('crystalyte', 'bionx'), 
+('bionx', '9continent'), 
+('unfaired', 'recumbents'), 
+('alleweder', 'a9/sunrider'), 
+('velos', 'diy-kit'), 
+('tadpole', 'trikes'), 
+('less-serious', 'party-ready'), 
+('pitiable', 'loathsome'), 
+('attuned', 'wry'), 
+('wry', 'singularity'), 
+('bmg/epic', 'proviso'), 
+('henky', 'penky')
