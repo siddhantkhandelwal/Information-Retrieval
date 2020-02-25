@@ -4,6 +4,7 @@ import math
 import pickle
 import sys
 from bs4 import BeautifulSoup as bsoup
+
 punctuations = ['.', ',', '!', '\'', '\"',
                 '(', ')', '[', ']', '{', '}', '?', '\\', '/', '~', '|', '<', '>']
 
