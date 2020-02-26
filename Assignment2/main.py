@@ -122,11 +122,19 @@ def build_documents_vector(database, vocabulary_words, inverse_vocab_word_dict):
 
 
 def process_query_vector(query, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N):
+    query_text = ''
+    for token in query:
+        query_text = query_text + ' ' + str(token)
+    query = query_text
+    print(query)
     query = query.lower()
     query = nltk.word_tokenize(query)
     query_vector = np.zeros(len(vocabulary_keys))
 
     for token in query:
+        if(token not in inverse_vocab_word_dict):
+            print("No results found for the given query")
+            exit(0)
         query_vector[inverse_vocab_word_dict[token]
                      ] = query_vector[inverse_vocab_word_dict[token]] + 1
 
@@ -140,7 +148,8 @@ def process_query_vector(query, vocabulary_keys, inverse_vocab_word_dict, term_d
         query_vector[i] = query_vector[i] * \
             math.log(N/term_document_frequency[i])
 
-    temp_query_vector = np.square(query_vector)
+    temp_query_vector = np.copy(query_vector)
+    temp_query_vector = np.square(temp_query_vector)
     temp_query_vector = np.sum(temp_query_vector)
     temp_query_vector = np.sqrt(temp_query_vector)
     query_vector = np.divide(query_vector, temp_query_vector)
@@ -171,7 +180,8 @@ def process_documents_vector(documents_vector):
     # print(documents_vector[0])
 
     # calculation of cosine normalisation
-    temp_documents_vector = np.square(documents_vector)
+    temp_documents_vector = np.copy(documents_vector)
+    temp_documents_vector = np.square(temp_documents_vector)
     temp_documents_vector = np.sum(temp_documents_vector, axis=1)
     temp_documents_vector = np.sqrt(temp_documents_vector)
     documents_vector = np.divide(documents_vector, temp_documents_vector[0])
@@ -196,7 +206,7 @@ def scoring(query, documents_vector, vocabulary_keys, inverse_vocab_word_dict, t
 def main(filename):
 
     # database, vocabulary = build_database_vocabulary(filename)
-    # # # how many unique words
+    # # how many unique words
     # vocabulary_words = list(vocabulary.keys())
     # inverse_vocab_word_dict = {k: v for v, k in enumerate(vocabulary_words)}
     # documents_vector = build_documents_vector(
@@ -215,12 +225,12 @@ def main(filename):
     term_document_frequency = np.count_nonzero(documents_vector, axis=0)
     doc_titles = pickle.load(open("doc_titles.pkl", "rb"))
 
-    scoring(sys.argv[2], documents_vector, vocabulary_keys,
+    scoring(sys.argv[2:], documents_vector, vocabulary_keys,
             inverse_vocab_word_dict, term_document_frequency, N, doc_titles)
 
 
 if __name__ == "__main__":
-    if(len(sys.argv) != 3):
+    if(len(sys.argv) < 3):
         print("Incorrect number of arguements")
         exit(-1)
     main(sys.argv[1])
