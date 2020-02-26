@@ -203,17 +203,21 @@ def scoring(query, documents_vector, vocabulary_keys, inverse_vocab_word_dict, t
                   str(ind+1) + " Score: " + str(scores[ind][1]))
 
 
-def main(filename):
+def index_construction(filename):
+    database, vocabulary = build_database_vocabulary(filename)
+    # how many unique words
+    vocabulary_words = list(vocabulary.keys())
+    inverse_vocab_word_dict = {k: v for v, k in enumerate(vocabulary_words)}
+    documents_vector = build_documents_vector(
+        database, vocabulary_words, inverse_vocab_word_dict)
+    documents_vector = process_documents_vector(documents_vector)
+    np.save("database_lnc.npy", documents_vector)
+    print("Saved! database_lnc.npy")
+    return database, vocabulary
 
-    # database, vocabulary = build_database_vocabulary(filename)
-    # # how many unique words
-    # vocabulary_words = list(vocabulary.keys())
-    # inverse_vocab_word_dict = {k: v for v, k in enumerate(vocabulary_words)}
-    # documents_vector = build_documents_vector(
-    #     database, vocabulary_words, inverse_vocab_word_dict)
-    # documents_vector = process_documents_vector(documents_vector)
-    # np.save("database_lnc.npy", documents_vector)
-    # print("Saved! database_lnc.npy")
+
+def main():
+    # database, vocabulary = index_construction(sys.argv[1])
 
     documents_vector = np.load("documents_vector.npy")
     N = len(documents_vector)
@@ -233,4 +237,4 @@ if __name__ == "__main__":
     if(len(sys.argv) < 3):
         print("Incorrect number of arguements")
         exit(-1)
-    main(sys.argv[1])
+    main()
