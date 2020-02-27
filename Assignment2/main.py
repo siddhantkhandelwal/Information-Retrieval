@@ -4,6 +4,9 @@ import math
 import pickle
 import sys
 from bs4 import BeautifulSoup as bsoup
+from spellchecker import SpellChecker
+from nltk.stem import PorterStemmer
+ps = PorterStemmer()
 
 punctuations = ['.', ',', '!', '\'', '\"',
                 '(', ')', '[', ']', '{', '}', '?', '\\', '/', '~', '|', '<', '>']
@@ -80,7 +83,7 @@ def build_database_vocabulary(filename):
 
     print("Done with the document reading...Database is ready \n")
     print("There are total " + str(doc_count) + " documents!")
-    print("There are totla " + str(len(doc_titles)) + " titles!")
+    print("There are total " + str(len(doc_titles)) + " titles!")
 
     # if(doc_count > 3):
     #     break
@@ -88,7 +91,7 @@ def build_database_vocabulary(filename):
     # vocabulary is a dictionary of words/tokens and their corpus frequencies
     vocabulary = build_vocabulary_freqdist(vocabulary)
 
-    print("Done with the Vocabulary building...Vocab is ready \n")
+    print("Done with the Vocabulary building...Vocab is ready and saved !\n")
 
     with open("vocabulary_dict.pkl", "wb") as f:
         pickle.dump(vocabulary, f)
@@ -96,29 +99,60 @@ def build_database_vocabulary(filename):
     with open("doc_titles.pkl", "wb") as f:
         pickle.dump(doc_titles, f)
 
+    stem_the_vocab(vocabulary)
+
     # print(vocabulary)
     return database, vocabulary
 
 
 def build_documents_vector(database, vocabulary_words, inverse_vocab_word_dict):
     documents_vector = np.zeros((len(database), len(vocabulary_words)))
-    # print("----------------------------------------------")
-    # print("----------------------------------------------")
-    # print(documents_vector[0])
-
-    inverse_vocab_word_dict = {k: v for v, k in enumerate(vocabulary_words)}
 
     # populate the documents_vector with the frequency of each vocabulary word for each document
     for doc_id, doc in enumerate(database):
-        if(doc_id % 200 == 0):
-            print("Reached Doc " + str(doc_id))
         for token in doc:
             documents_vector[doc_id][inverse_vocab_word_dict[token]
                                      ] = documents_vector[doc_id][inverse_vocab_word_dict[token]] + 1
-
-    print("Done with the Docvec build... \n")
+    print("Done with the Documents Vector build... Saving it as numpy file \n")
     np.save("documents_vector.npy", documents_vector)
     return documents_vector
+
+
+def spell_correct(query):
+    spell = SpellChecker()
+    misspelled = spell.unknown(query.split())
+    if misspelled:
+        for word in query.split():
+            if word in misspelled:
+                print("Correcting " + word + " to " + spell.correction(word))
+                query = query.replace(word, spell.correction(word))
+    return query
+
+
+def stem_the_vocab(vocabulary_dict):
+
+    vocabulary_keys = list(vocabulary_dict.keys())
+    vocabulary_values = list(vocabulary_dict.values())
+
+    porter = nltk.PorterStemmer()
+    stemmed_vocab = {}
+
+    for word_id, word in enumerate(vocabulary_keys):
+        if porter.stem(word) not in stemmed_vocab:
+            stemmed_vocab[porter.stem(word)] = (
+                word, vocabulary_values[word_id])
+        else:
+            if stemmed_vocab[porter.stem(word)][1] < vocabulary_values[word_id]:
+                stemmed_vocab[porter.stem(word)] = (
+                    word, vocabulary_values[word_id])
+
+    with open("stemmed_vocab.pkl", "wb") as f:
+        pickle.dump(stemmed_vocab, f)
+
+
+def get_stemmed_token(token):
+    porter = nltk.PorterStemmer()
+    return porter.stem(token)
 
 
 def process_query_vector(query, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N):
@@ -126,81 +160,156 @@ def process_query_vector(query, vocabulary_keys, inverse_vocab_word_dict, term_d
     for token in query:
         query_text = query_text + ' ' + str(token)
     query = query_text
-    print(query)
     query = query.lower()
-    query = nltk.word_tokenize(query)
+
+    # bonus heuristic
+    print("Running Spell Check")
+    query = spell_correct(query)
+
     query_vector = np.zeros(len(vocabulary_keys))
+    query = nltk.word_tokenize(query)
 
-    for token in query:
-        if(token not in inverse_vocab_word_dict):
-            print("No results found for the given query")
+    if(len(query) == 1 and query[0] not in inverse_vocab_word_dict):
+        print(
+            query[0] + " is not found in vocabulary. Using most appropriate substitution using root word analysis! ")
+        stemmed_token = get_stemmed_token(query[0])
+
+        # Now the query contains all tokens as it is, only the ones that do not excist
+        # in the vocabulary are replaced by their stemmed root versions
+        stemmed_vocab = pickle.load(open("stemmed_vocab.pkl", "rb"))
+        if(stemmed_token not in stemmed_vocab):
+            print("Could not replace, no search results found")
             exit(0)
-        query_vector[inverse_vocab_word_dict[token]
-                     ] = query_vector[inverse_vocab_word_dict[token]] + 1
+        fixed_token = stemmed_vocab[token][0]
+        print("Did you mean " + fixed_token + "? Press y for yes: ")
+        choice = input()
+        if choice != 'y':
+            print("No search results found")
+            exit(0)
+        query[query.index(token)] = fixed_token
+        # Query has the wrong word replaced by the most common rooted word (with the same root as the wrong word)
+        print("Changed query: " + ' '.join(query))
+        query_vector[inverse_vocab_word_dict[fixed_token]
+                     ] = query_vector[inverse_vocab_word_dict[fixed_token]] + 1
+    elif(len(query) >= 1):
+        for token in query:
+            if(token not in inverse_vocab_word_dict):
+                print(token + " not found in vocabulary.")
+                stemmed_token = get_stemmed_token(token)
+                stemmed_vocab = pickle.load(open("stemmed_vocab.pkl", "rb"))
+                if(stemmed_token not in stemmed_vocab):
+                    continue
+                fixed_token = stemmed_vocab[stemmed_token][0]
+                print("Did you mean " + fixed_token + "? Press y for yes: ")
+                choice = input()
+                if choice != 'y':
+                    print("Skipping " + token)
+                    continue
+                query[query.index(token)] = fixed_token
+                print("Changed query: " + ' '.join(query))
+                query_vector[inverse_vocab_word_dict[fixed_token]
+                             ] = query_vector[inverse_vocab_word_dict[fixed_token]] + 1
+            else:
+                query_vector[inverse_vocab_word_dict[token]
+                             ] = query_vector[inverse_vocab_word_dict[token]] + 1
 
+    # processing log calculations (L)
     for i in range(query_vector.shape[0]):
         if(query_vector[i] > 0):
             query_vector[i] = 1 + math.log(query_vector[i])
 
+    # processing term normalization (T)
     for i in range(query_vector.shape[0]):
         if(query_vector[i] == 0):
             continue
         query_vector[i] = query_vector[i] * \
             math.log(N/term_document_frequency[i])
 
+    # Cosine normalization (C)
     temp_query_vector = np.copy(query_vector)
     temp_query_vector = np.square(temp_query_vector)
     temp_query_vector = np.sum(temp_query_vector)
     temp_query_vector = np.sqrt(temp_query_vector)
     query_vector = np.divide(query_vector, temp_query_vector)
-    return query_vector
+
+    return query, query_vector
 
 
-def calculate_score(query_vector, documents_vector):
-    scores = {}
-    for id, document_vector in enumerate(documents_vector):
+def calculate_score(query_vector, database_lnc):
+
+    scores = []
+    for id, document_vector in enumerate(database_lnc):
         score = np.dot(query_vector, document_vector)
         score = score/np.linalg.norm(query_vector)
         score = score/np.linalg.norm(document_vector)
-        scores[id] = score
-    scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    scores = dict(scores)
+        scores.append([id, score])
     return scores
 
 
 def process_documents_vector(documents_vector):
+
     for i in range(0, documents_vector.shape[0]):
         for j in range(0, documents_vector.shape[1]):
             if(documents_vector[i][j] > 0):
                 documents_vector[i][j] = 1 + math.log(documents_vector[i][j])
-    print("Done with the log calc build... \n")
 
-    # print("----------------------------------------------")
-    # print("----------------------------------------------")
-    # print(documents_vector[0])
+    print("Done with the log calculation build... \n")
 
     # calculation of cosine normalisation
     temp_documents_vector = np.copy(documents_vector)
     temp_documents_vector = np.square(temp_documents_vector)
     temp_documents_vector = np.sum(temp_documents_vector, axis=1)
     temp_documents_vector = np.sqrt(temp_documents_vector)
-    documents_vector = np.divide(documents_vector, temp_documents_vector[0])
+    documents_vector = np.divide(
+        documents_vector, temp_documents_vector[:, None])
 
-    print("Done with the cosine calc build... \n")
+    print("Done with the cosine normalization build... \n")
     return documents_vector
 
 
-def scoring(query, documents_vector, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N, doc_titles):
-    query_vector = process_query_vector(
-        query, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N)
-    scores = calculate_score(query_vector, documents_vector)
-    scores = [(key, value) for key, value in scores.items()]
-    print("Top 10 Scoring Documents are: ")
+def title_weighting(scores, query, doc_titles):
 
+    title_weight = 0.1
+    trivial_words = ["of", "and", "a", "the", "an", "is"]
+
+    for doc_id, doc_title in enumerate(doc_titles):
+        count = 0
+        for word in query:
+            if word in doc_title:
+                if(word not in trivial_words):
+                    count = count + 1
+        # print("Old Score: " + str(scores[doc_id][1]))
+        scores[doc_id][1] = scores[doc_id][1] * (1+count*title_weight)
+        # print("New Score: " + str(scores[doc_id][1]))
+
+    return scores
+
+
+def scoring(query, database_lnc, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N, doc_titles):
+    corrected_query, query_vector = process_query_vector(
+        query, vocabulary_keys, inverse_vocab_word_dict, term_document_frequency, N)
+    scores = calculate_score(query_vector, database_lnc)
+    original_scores = scores.copy()
+
+    original_scores = sorted(original_scores, key=lambda x: x[1], reverse=True)
+    print("Top 10 Scoring Documents without H1 are: ")
     for ind in range(10):
-        if(scores[ind][1] != 0):
-            print(doc_titles[scores[ind][0]] + " is at rank " +
-                  str(ind+1) + " Score: " + str(scores[ind][1]))
+        if(original_scores[ind][1] == 0):
+            break
+        print(doc_titles[original_scores[ind][0]] + " is at rank " +
+              str(ind+1) + " Score: " + str(original_scores[ind][1]))
+
+    print("\n-----------------------------------------\n")
+
+    scores = title_weighting(scores, corrected_query, doc_titles)
+
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)
+    print("Top 10 Scoring Documents with H1 are: ")
+    for ind in range(10):
+        if(scores[ind][1] == 0):
+            break
+        print(doc_titles[scores[ind][0]] + " is at rank " +
+              str(ind+1) + " Score: " + str(scores[ind][1]))
 
 
 def index_construction(filename):
@@ -213,23 +322,20 @@ def index_construction(filename):
     documents_vector = process_documents_vector(documents_vector)
     np.save("database_lnc.npy", documents_vector)
     print("Saved! database_lnc.npy")
-    return database, vocabulary
 
 
 def main():
-    # database, vocabulary = index_construction(sys.argv[1])
-
-    documents_vector = np.load("documents_vector.npy")
-    N = len(documents_vector)
+    # index_construction(   sys.argv[1])
+    database_lnc = np.load("database_lnc.npy")
+    N = database_lnc.shape[0]
     vocabulary_dict = pickle.load(open("vocabulary_dict.pkl", "rb"))
-    # print(vocabulary_dict)
+
     vocabulary_keys = list(vocabulary_dict.keys())
     inverse_vocab_word_dict = {k: v for v, k in enumerate(vocabulary_keys)}
-    # print(inverse_vocab_word_dict)
-    term_document_frequency = np.count_nonzero(documents_vector, axis=0)
+    term_document_frequency = np.count_nonzero(database_lnc, axis=0)
     doc_titles = pickle.load(open("doc_titles.pkl", "rb"))
 
-    scoring(sys.argv[2:], documents_vector, vocabulary_keys,
+    scoring(sys.argv[2:], database_lnc, vocabulary_keys,
             inverse_vocab_word_dict, term_document_frequency, N, doc_titles)
 
 
