@@ -29,3 +29,7 @@
   scores = title_weighting(scores, corrected_query, doc_titles)
   ```
 - Heuristic 1 has been incorporated in the natural flow of the code itself, thus, giving user the choice to select Yes/No in order to activate the heuristic at run time
+- Spell check can be activated and deactivated in function `process_query_vector` 
+  ```bash
+  query = spell_correct(query)
+  ```
